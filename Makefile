@@ -13,3 +13,8 @@ shell:
 reset:
 	docker-compose --rmi all -v
 	docker-compose build
+
+make djornl_validate:
+	docker-compose build
+	docker-compose run re_api sh scripts/djornl_validate.sh
+	docker-compose down --remove-orphans

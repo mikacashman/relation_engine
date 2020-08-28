@@ -4,10 +4,11 @@ arangodb.
 
 Running this requires a set of source files provided by the ORNL group.
 """
-import json
-import requests
-import os
 import csv
+import json
+import os
+import requests
+import sys
 import yaml
 
 import importers.utils.config as config
@@ -434,6 +435,27 @@ class DJORNL_Parser(object):
         self.save_dataset(self.load_clusters())
         return True
 
+    def validate_data(self):
+
+        err_list = []
+        results = {}
+        for loader in ['load_edges', 'load_nodes', 'load_clusters']:
+            try:
+                method = getattr(self, loader)
+                results[loader] = method()
+            except RuntimeError as re:
+                err_list.append(str(re))
+
+        if len(err_list):
+            raise RuntimeError('\n'.join(err_list))
+
+        self.check_deltas(
+            edge_data=results['load_edges'],
+            node_data=results['load_nodes'],
+            cluster_data=results['load_clusters']
+        )
+        return True
+
     def check_data_delta(self):
         edge_data = self.load_edges()
         node_data = self.load_nodes()
@@ -448,31 +470,35 @@ class DJORNL_Parser(object):
         clusters_nodelist = set([e['_key'] for e in cluster_data['nodes']])
         all_nodes = edges_nodelist.union(nodes_nodelist).union(clusters_nodelist)
 
-        # check all nodes in cluster_data have node data
-        cluster_no_node_set = clusters_nodelist.difference(nodes_nodelist)
-        if cluster_no_node_set:
-            print({'clusters with no node metadata': cluster_no_node_set})
-
-        # check all nodes in the edge_data have node data
-        edge_no_node_set = edges_nodelist.difference(nodes_nodelist)
-        if edge_no_node_set:
-            print({'edges with no node metadata': edge_no_node_set})
-
-        # check all nodes are in the edge_data set
-        node_no_edge_set = nodes_nodelist.difference(edges_nodelist)
-        if node_no_edge_set:
-            print({'nodes not in an edge': node_no_edge_set})
-
         # count all edges
         print("Dataset contains " + str(len(edge_data['edges'])) + " edges")
         # count all nodes
         print("Dataset contains " + str(len(all_nodes)) + " nodes")
 
+        # some basic validation
+        # check all nodes in cluster_data have node data
+        cluster_no_node_set = clusters_nodelist.difference(nodes_nodelist)
+        if cluster_no_node_set:
+            print('clusters with no node metadata:')
+            print(", ".join(sorted(list(cluster_no_node_set))))
+
+        # check all nodes in the edge_data have node data
+        edge_no_node_set = edges_nodelist.difference(nodes_nodelist)
+        if edge_no_node_set:
+            print('edges with no node metadata:')
+            print(", ".join(sorted(list(edge_no_node_set))))
+
+        # check all nodes are in the edge_data set
+        node_no_edge_set = nodes_nodelist.difference(edges_nodelist)
+        if node_no_edge_set:
+            print('nodes not in an edge:')
+            print(", ".join(sorted(list(node_no_edge_set))))
 
 if __name__ == '__main__':
     parser = DJORNL_Parser()
-    try:
+
+    if len(sys.argv) > 1 and sys.argv[1] == 'validate':
+        parser.validate_data()
+    else:
         parser.load_data()
-    except Exception as err:
-        print(err)
-        exit(1)
+    exit(0)
