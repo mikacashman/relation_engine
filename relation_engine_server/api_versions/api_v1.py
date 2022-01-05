@@ -107,6 +107,9 @@ def run_query():
         if "params" in stored_query:
             # Validate the user params for the query
             stored_query_path = spec_loader.get_stored_query(query_name, path_only=True)
+            print('\n#stored_query_path', stored_query_path,
+                    '#json_body', json_body,
+                    sep='\n')
             run_validator(
                 schema_file=stored_query_path, data=json_body, validate_at="/params"
             )

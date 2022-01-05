@@ -24,19 +24,19 @@ from relation_engine_server.utils import (
     spec_loader,
 )
 
-warnings.filterwarnings('ignore')
+warnings.filterwarnings("ignore")
 
 
 arango_config = get_arango_config()
-username = arango_config['username']
-password = arango_config['password']
-host_url = arango_config['host_url']
+username = arango_config["username"]
+password = arango_config["password"]
+host_url = arango_config["host_url"]
 
 client = ArangoClient(hosts=host_url)
-db = client.db('ci', username=username, password=password)
-ncbi_taxon = db.collection('ncbi_taxon')
-gtdb_taxon = db.collection('gtdb_taxon')
-silva_taxon = db.collection('silva_taxon')
+db = client.db("ci", username=username, password=password)
+ncbi_taxon = db.collection("ncbi_taxon")
+gtdb_taxon = db.collection("gtdb_taxon")
+silva_taxon = db.collection("silva_taxon")
 # ncbi_taxon_all = list(ncbi_taxon.all())
 
 LIMIT = 20  # query ret
@@ -47,26 +47,24 @@ CAP_SCINAMES_PREFIXES = 5000
 
 
 # Assuming running the file
-if '__file__' in globals():
+if "__file__" in globals():
     TEST_DATA_DIR = os.path.normpath(
-        os.path.join(
-            os.path.dirname(os.path.abspath(__file__)),
-            '../data/'
-        )
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "../data/")
     )
 # Assuming running the code from repo home
 else:
-    TEST_DATA_DIR = os.path.join(
-        os.getcwd(),
-        'src/test/data/'
-    )
+    TEST_DATA_DIR = os.path.join(os.getcwd(), "src/test/data/")
 
-TMP_OUT_DIR = os.path.join(TEST_DATA_DIR, 'tmp_out')
+TMP_OUT_DIR = os.path.join(TEST_DATA_DIR, "tmp_out")
 if not os.path.exists(TMP_OUT_DIR):
     os.mkdir(TMP_OUT_DIR)
-scinames_all_fp = os.path.join(TEST_DATA_DIR, 'ncbi_taxon__scientific_names__NOV_2021__all.json.gz')
-scinames_latest_fp = os.path.join(TEST_DATA_DIR, 'ncbi_taxon__scientific_names__NOV_2021__latest.json.gz')
-with gzip.open(scinames_latest_fp, 'rb') as fh:
+scinames_all_fp = os.path.join(
+    TEST_DATA_DIR, "ncbi_taxon__scientific_names__NOV_2021__all.json.gz"
+)
+scinames_latest_fp = os.path.join(
+    TEST_DATA_DIR, "ncbi_taxon__scientific_names__NOV_2021__latest.json.gz"
+)
+with gzip.open(scinames_latest_fp, "rb") as fh:
     scinames_latest = json.load(fh)
 
     scinames_latest_permute = scinames_latest[:]
@@ -74,9 +72,8 @@ with gzip.open(scinames_latest_fp, 'rb') as fh:
 
 
 def is_simple_sciname(sciname):
-    return (
-        len(sciname.split()) == 2
-        and all([tok.isalnum() and len(tok) >= 3 for tok in sciname.split()])
+    return len(sciname.split()) == 2 and all(
+        [tok.isalnum() and len(tok) >= 3 for tok in sciname.split()]
     )
 
 
@@ -92,22 +89,22 @@ def fulltext_raw(search_text, query=FULLTEXT_QUERY):
     cursor = db.aql.execute(
         query,
         bind_vars={
-            '@coll': 'ncbi_taxon',
-            'search_attrkey': 'scientific_name',
-            'search_text': search_text,
-            'filter_attr_expr': [{"rank": "species"}, {"strain": True}],
-            'ts': TS,
-            'offset': None,
-            'limit': LIMIT,
-            'select': ["scientific_name"],
-        }
+            "@coll": "ncbi_taxon",
+            "search_attrkey": "scientific_name",
+            "search_text": search_text,
+            "filter_attr_expr": [{"rank": "species"}, {"strain": True}],
+            "ts": TS,
+            "offset": None,
+            "limit": LIMIT,
+            "select": ["scientific_name"],
+        },
     )
     return {**next(cursor), **cursor.statistics()}
 
 
 def get_search_text_samplings(
     scinames_latest_fp=scinames_latest_fp,
-    out_samplings_fn='samplings.json',
+    out_samplings_fn="samplings.json",
     cap_scinames=CAP_SCINAMES,
     cap_scinames_prefixes=CAP_SCINAMES_PREFIXES,
 ):
@@ -121,7 +118,7 @@ def get_search_text_samplings(
     * 36 alphanumeric characters
     * Any edge cases?
     """
-    with gzip.open(scinames_latest_fp, 'rb') as fh:
+    with gzip.open(scinames_latest_fp, "rb") as fh:
         scinames = json.load(fh)
 
     seen_prefixes = set()
@@ -132,26 +129,31 @@ def get_search_text_samplings(
         Then take all prefixes (not already seen in accumulated prefixes)
         "Wild" just means the exclusion of "simple"
         """
-        assert styp in ['simple', 'wild']
-        print(f'Sampling {styp} scinames ...')
+        assert styp in ["simple", "wild"]
+        print(f"Sampling {styp} scinames ...")
 
-        sampling = [sciname for sciname in scinames if is_simple_sciname(sciname) == (styp == 'simple')]
+        sampling = [
+            sciname
+            for sciname in scinames
+            if is_simple_sciname(sciname) == (styp == "simple")
+        ]
         random.shuffle(sampling)
         sampling = sampling[:cap_scinames]
         sampling_prefixes = [
-            sciname[:i]
-            for sciname in sampling
-            for i in range(1, len(sciname))
+            sciname[:i] for sciname in sampling for i in range(1, len(sciname))
         ]
         sampling_prefixes = [
             sciname
             for sciname in sampling_prefixes
-            if sciname not in seen_prefixes and not seen_prefixes.add(sciname)  # latter operand always evaluates to true
+            if sciname not in seen_prefixes
+            and not seen_prefixes.add(
+                sciname
+            )  # latter operand always evaluates to true
         ]
         return sampling, sampling_prefixes[:cap_scinames_prefixes]
 
-    scinames_simple, scinames_simple_prefixes = get_capped_samplings('simple')
-    scinames_wild, scinames_wild_prefixes = get_capped_samplings('wild')
+    scinames_simple, scinames_simple_prefixes = get_capped_samplings("simple")
+    scinames_wild, scinames_wild_prefixes = get_capped_samplings("wild")
     alphanum_chars = list("abcdefghijklmnopqrstuvwxyz0123456789")
     edge_cases = ["", "~!@#$%^&*()_+", "~!@#$%^&*()_+hi", "hi~!@#$%^&*()_+", "[", None]
 
@@ -162,7 +164,7 @@ def get_search_text_samplings(
         "scinames_simple_prefixes": scinames_simple_prefixes,
         "scinames_wild_prefixes": scinames_wild_prefixes,
         "alphanum_chars": alphanum_chars,
-        "edge_cases": edge_cases
+        "edge_cases": edge_cases,
     }
 
     # Manual peek
@@ -170,14 +172,15 @@ def get_search_text_samplings(
     print(
         json.dumps(
             {
-                styp: sampling[:peek_len] + (['...'] if len(sampling) > peek_len else [])
+                styp: sampling[:peek_len]
+                + (["..."] if len(sampling) > peek_len else [])
                 for styp, sampling in samplings.items()
             },
-            indent=3
+            indent=3,
         )
     )
 
-    with open(os.path.join(TMP_OUT_DIR, out_samplings_fn), 'w') as fh:
+    with open(os.path.join(TMP_OUT_DIR, out_samplings_fn), "w") as fh:
         json.dump(samplings, fh)
     return samplings
 
@@ -185,16 +188,24 @@ def get_search_text_samplings(
 ################################################################################
 ################################################################################
 @pytest.mark.skipif(
-    not os.environ.get('RUN_FULLTEXT_SEARCH_DEV'),
-    reason='This can take a few hours to a few days, and only needs to be ascertained once'
+    not os.environ.get("RUN_FULLTEXT_SEARCH_DEV"),
+    reason="This can take a few hours to a few days, and only needs to be ascertained once",
 )
 def test_fulltext_scinames(
     samplings={
-        'scinames_latest_permute': scinames_latest_permute[:CAP_SCINAMES],
+        "scinames_latest_permute": scinames_latest_permute[:CAP_SCINAMES],
         # **get_search_text_samplings(),
     },
-    queries={'new': spec_loader.get_stored_query("fulltext_search")},  # queries,
-    expect_hits={'samplings': ['scinames_simple', 'scinames_wild', 'scinames_latest', 'scinames_latest_permute'], 'queries': ['new']},
+    queries={"new": spec_loader.get_stored_query("fulltext_search")},  # queries,
+    expect_hits={
+        "samplings": [
+            "scinames_simple",
+            "scinames_wild",
+            "scinames_latest",
+            "scinames_latest_permute",
+        ],
+        "queries": ["new"],
+    },
     update_period=100,
 ):
     """
@@ -211,23 +222,27 @@ def test_fulltext_scinames(
         samplings[styp] = sampling[:]
         random.shuffle(samplings[styp])
     total_scinames = sum([len(sampling) for sampling in samplings.values()])
-    samplings_metadata = [{'styp': styp, 'num': len(sampling)} for styp, sampling in samplings.items()]
+    samplings_metadata = [
+        {"styp": styp, "num": len(sampling)} for styp, sampling in samplings.items()
+    ]
 
     w = 150
-    dec = '=' * w
+    dec = "=" * w
     prelude = textwrap.wrap(
-        '\n'.join([
-            f'Testing samplings={samplings_metadata},',
-            f'total_scinames={total_scinames},',
-            f'queries={list(queries.keys())},',
-            f'expect_hits={expect_hits},',
-        ]),
+        "\n".join(
+            [
+                f"Testing samplings={samplings_metadata},",
+                f"total_scinames={total_scinames},",
+                f"queries={list(queries.keys())},",
+                f"expect_hits={expect_hits},",
+            ]
+        ),
         width=w,
     )
-    print('\n\n')
+    print("\n\n")
     print(dec)
     print(dec)
-    print(*prelude, sep='\n')
+    print(*prelude, sep="\n")
     print(dec)
     print(dec)
     print()
@@ -236,6 +251,7 @@ def test_fulltext_scinames(
     failed_all = dict()
 
     try:
+
         def handle_err(e, msg, dat):
             """
             During sampling/sciname/query loops,
@@ -262,32 +278,34 @@ def test_fulltext_scinames(
                 """
                 tper_iter = 0 if i == 0 else (time.time() - t0) / i
                 tper_exes = {
-                    qtyp: np.mean(exe_times) for qtyp, exe_times in qtyp_2_exe_times.items()
+                    qtyp: np.mean(exe_times)
+                    for qtyp, exe_times in qtyp_2_exe_times.items()
                 }
                 tmed_exes = {
-                    qtyp: np.median(exe_times) for qtyp, exe_times in qtyp_2_exe_times.items()
+                    qtyp: np.median(exe_times)
+                    for qtyp, exe_times in qtyp_2_exe_times.items()
                 }
                 print(
-                    '...',
+                    "...",
                     f"[{datetime.datetime.now().strftime('%b%d %H:%M').upper()}]",
-                    '...',
-                    f'Tested {i}/{len(sampling)} search texts',
-                    '...',
+                    "...",
+                    f"Tested {i}/{len(sampling)} search texts",
+                    "...",
                     f"{ {qtyp: '%.3fs' % tper_exe for qtyp, tper_exe in tper_exes.items()}} per search text (mean exe time)",
-                    '...',
+                    "...",
                     f"{ {qtyp: '%.3fs' % tmed_exe for qtyp, tmed_exe in tmed_exes.items()}} per search text (median exe time)",
-                    '...',
+                    "...",
                     f"{'%.3fs' % tper_iter} per search text iteration",
-                    '...',
+                    "...",
                 )
                 return tper_iter, tper_exes, tmed_exes
 
             print(
-                f'\nTesting sampling={samplings_metadata[k]},',
-                f'queries={list(queries.keys())},',
+                f"\nTesting sampling={samplings_metadata[k]},",
+                f"queries={list(queries.keys())},",
                 f'sampling_assert_hit={styp in expect_hits["samplings"]},',
                 f'queries_assert_hit={expect_hits["queries"] if styp in expect_hits["samplings"] else []}',
-                '...',
+                "...",
             )
             print(dec)
             for i in range(len(sampling)):
@@ -314,28 +332,42 @@ def test_fulltext_scinames(
                     try:
                         query_res = fulltext_raw(sciname, query=query)
                     except Exception as e:
-                        handle_err(e, 'Something went wrong in the query!', dat)
+                        handle_err(e, "Something went wrong in the query!", dat)
 
-                    qtyp_2_exe_times[qtyp].append(query_res['execution_time'])
+                    qtyp_2_exe_times[qtyp].append(query_res["execution_time"])
                     dat.update(query_res)
 
-                    if styp in expect_hits['samplings'] and qtyp in expect_hits['queries']:
+                    if (
+                        styp in expect_hits["samplings"]
+                        and qtyp in expect_hits["queries"]
+                    ):
                         try:
-                            res_scinames = dat['res_scinames']
+                            res_scinames = dat["res_scinames"]
                             # Given that limit=20,
                             # test that sciname is in top 20,
                             # and they aren't possibly >20 duplicates
-                            assert (
-                                sciname in res_scinames
-                                and not (len(res_scinames) == LIMIT and all([res_sciname == sciname for res_sciname in res_scinames]))
+                            assert sciname in res_scinames and not (
+                                len(res_scinames) == LIMIT
+                                and all(
+                                    [
+                                        res_sciname == sciname
+                                        for res_sciname in res_scinames
+                                    ]
+                                )
                             )
                         except AssertionError as e:
-                            handle_err(e, 'Something went wrong in the expect hit assertion!', dat)
+                            handle_err(
+                                e,
+                                "Something went wrong in the expect hit assertion!",
+                                dat,
+                            )
 
         tper_iter, tper_exes, tmed_exes = update_timekeepers_print(i + 1)
 
     except Exception as e:
-        handle_err(e, 'Something went wrong in the samplings/scinames/query loops!', dat)
+        handle_err(
+            e, "Something went wrong in the samplings/scinames/query loops!", dat
+        )
 
     finally:
         results_fp = os.path.join(
@@ -348,7 +380,7 @@ def test_fulltext_scinames(
                 f"{len(queries)}_queries__"
                 f"{'latest' if TS else 'all'}_ts"
                 ".json"
-            )
+            ),
         )
         data_all = {
             "i": i,
@@ -361,12 +393,11 @@ def test_fulltext_scinames(
             "data_all": data_all,
             "failed_all": failed_all,
         }
-        print(f'\nWriting results/failures to {results_fp}')
-        with open(results_fp, 'w') as fh:
+        print(f"\nWriting results/failures to {results_fp}")
+        with open(results_fp, "w") as fh:
             json.dump(data_all, fh, indent=3)
 
         return data_all
-
 
 
 ################################################################################
@@ -388,75 +419,68 @@ def check_fulltext_scinames(results_fp, fig_dir):
 
     Conclusion: The short/problematic tokens that cause a significant jump in execution time are length 1 and 2
     """
+
     def scatter(x, y, fn):
         plt.figure()
-        plt.xlabel('num_toks')
-        plt.ylabel('exe_time')
+        plt.xlabel("num_toks")
+        plt.ylabel("exe_time")
         plt.suptitle(fn)
         plt.scatter(x, y)
-        plt.savefig(
-            os.path.join(fig_dir, fn)
-        )
+        plt.savefig(os.path.join(fig_dir, fn))
         plt.close()
 
     with open(results_fp) as fh:
-        results = json.load(fh)['data_all']['latest_scinames']
+        results = json.load(fh)["data_all"]["latest_scinames"]
 
-    toks_l = [
-        res['search_text__wordboundmod_icu_toks'][:]
-        for res in results
-    ]
-    tok_lens_l = [
-        [
-            len(tok)
-            for tok in toks
-        ]
-        for toks in toks_l
-    ]
-    num_toks = [
-        len(toks)
-        for toks in toks_l
-    ]
+    toks_l = [res["search_text__wordboundmod_icu_toks"][:] for res in results]
+    tok_lens_l = [[len(tok) for tok in toks] for toks in toks_l]
+    num_toks = [len(toks) for toks in toks_l]
 
-# -------------------------------------------------------------
+    # -------------------------------------------------------------
 
     vecs = {
-        'num_toks': num_toks,
-        'num_toks_len_lte1': [sum([tok_len <= 1 for tok_len in tok_lens]) for tok_lens in tok_lens_l],
-        'num_toks_len_lte2': [sum([tok_len <= 2 for tok_len in tok_lens]) for tok_lens in tok_lens_l],
-        'num_toks_len_lte3': [sum([tok_len <= 3 for tok_len in tok_lens]) for tok_lens in tok_lens_l],
-        'num_toks_len_lte4': [sum([tok_len <= 4 for tok_len in tok_lens]) for tok_lens in tok_lens_l],
-        'num_toks_len_lte5': [sum([tok_len <= 5 for tok_len in tok_lens]) for tok_lens in tok_lens_l],
-        'exe_time': [float(res['execution_time']) * 1000 for res in results],
+        "num_toks": num_toks,
+        "num_toks_len_lte1": [
+            sum([tok_len <= 1 for tok_len in tok_lens]) for tok_lens in tok_lens_l
+        ],
+        "num_toks_len_lte2": [
+            sum([tok_len <= 2 for tok_len in tok_lens]) for tok_lens in tok_lens_l
+        ],
+        "num_toks_len_lte3": [
+            sum([tok_len <= 3 for tok_len in tok_lens]) for tok_lens in tok_lens_l
+        ],
+        "num_toks_len_lte4": [
+            sum([tok_len <= 4 for tok_len in tok_lens]) for tok_lens in tok_lens_l
+        ],
+        "num_toks_len_lte5": [
+            sum([tok_len <= 5 for tok_len in tok_lens]) for tok_lens in tok_lens_l
+        ],
+        "exe_time": [float(res["execution_time"]) * 1000 for res in results],
     }
 
-    print('Scattering num_toks and num_toks_lte_x ...')
+    print("Scattering num_toks and num_toks_lte_x ...")
 
     for vec_name, vec in vecs.items():
-        if vec_name == 'exe_time':
+        if vec_name == "exe_time":
             continue
-        scatter(vec, vecs['exe_time'], vec_name)
+        scatter(vec, vecs["exe_time"], vec_name)
 
-# -------------------------------------------------------------
+    # -------------------------------------------------------------
 
     def keep_all_tok_lens_gte(length: int):
         inds = [
             i
             for i, tok_lens in enumerate(tok_lens_l)
-            if all([
-                tok_len >= length
-                for tok_len in tok_lens
-            ])
+            if all([tok_len >= length for tok_len in tok_lens])
         ]
 
-        x = np.array(vecs['num_toks'])[inds]
-        y = np.array(vecs['exe_time'])[inds]
+        x = np.array(vecs["num_toks"])[inds]
+        y = np.array(vecs["exe_time"])[inds]
 
         return x, y
 
-    print('Scattering num_toks__when_all_len_gte_x ...')
+    print("Scattering num_toks__when_all_len_gte_x ...")
 
     for length in [1, 2, 3, 4, 5, 6, 7]:
         x, y = keep_all_tok_lens_gte(length)
         scatter(x, y, f"num_toks__when_all_len_gte{length}")
-

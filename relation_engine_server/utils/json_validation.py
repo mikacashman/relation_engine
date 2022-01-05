@@ -113,6 +113,10 @@ def run_validator(
 
     """
 
+    print('\n#schema', schema, '#schema_file', schema_file, '#validate_at', validate_at, '#data', data, sep='\n')
+    schema_file_ex = '/spec/stored_queries/taxonomy/taxonomy_search_sci_name.yaml'
+    validator_ex = get_schema_validator(None, schema_file_ex, validate_at)
+
     validator = get_schema_validator(schema, schema_file, validate_at)
 
     if data is None and data_file is None or data is not None and data_file is not None:
@@ -121,6 +125,13 @@ def run_validator(
     # data to validate
     if data is None:
         data = _load_json_schema(data_file)
+
+    print('\n#validator', validator, '#data', json.dumps(data, indent=4), sep='\n')
+
+    try:
+        validator.is_valid({"fav_fruit": 0})
+    except:
+        raise Exception('WTF!!!')
 
     if validator.is_valid(data):
         return data

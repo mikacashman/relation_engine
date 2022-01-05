@@ -2,7 +2,7 @@
 name: fulltext_search
 params:
   type: object
-  required: ["@coll", search_attrkey, search_text, ts, filter_attr_expr, offset, limit, select]
+  required: ["@coll", search_attrkey, search_text]
   properties:
     "@coll":
       type: string
@@ -26,11 +26,9 @@ params:
       title: Filter by document attribute equality
       items:
         type: object
-        additionalProperties:
-          type: string
       maxItems: 50
       examples: [
-          [{"rank": species"}, {"rank": "strain"}, {"strain": true}],
+          [{"rank": "species"}, {"rank": "strain"}, {"strain": true}],
           [{"rank": "species", "strain": false}]
         ]
       default: null

@@ -42,11 +42,14 @@ with open(silva_taxon_fp) as fh:
 class Test(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        check_spec_test_env()
+        print('\n###SPEC_RELEASE_PATH', os.environ.get('SPEC_RELEASE_PATH'))
+        check_spec_test_env(do_download_specs=True)
 
         create_test_docs('ncbi_taxon', ncbi_taxa)
         create_test_docs('gtdb_taxon', gtdb_taxa)
         create_test_docs('silva_taxon', silva_taxa)
+
+        print('DONE. AND SPEC_RELEASE_PATH IS', os.environ.get('SPEC_RELEASE_PATH'))
 
     def test_ncbi_taxon_scinames(self):
         scinames = [
@@ -81,7 +84,7 @@ class Test(unittest.TestCase):
         for sciname in scinames:
             _fulltext_query__expect_hit(
                 self,
-                coll='@ncbi_taxon',
+                coll='ncbi_taxon',
                 search_attrkey='scientific_name',
                 search_text=sciname,
                 ts=_NOW,
@@ -133,7 +136,7 @@ class Test(unittest.TestCase):
         for sciname in scinames:
             _fulltext_query__expect_hit(
                 self,
-                coll='@gtdb_taxon',
+                coll='gtdb_taxon',
                 search_attrkey='name',
                 search_text=sciname,
                 ts=_NOW,
@@ -186,7 +189,7 @@ class Test(unittest.TestCase):
         for sciname in scinames:
             _fulltext_query__expect_hit(
                 self,
-                coll='@silva_taxon',
+                coll='silva_taxon',
                 search_attrkey='name',
                 search_text=sciname,
                 ts=_NOW,
@@ -211,7 +214,7 @@ class Test(unittest.TestCase):
         for sciname in scinames:
             _fulltext_query__expect_hit(
                 self,
-                coll='@ncbi_taxon',
+                coll='ncbi_taxon',
                 search_attrkey='scientific_name',
                 search_text=sciname,
                 ts=None,
@@ -228,7 +231,7 @@ class Test(unittest.TestCase):
         for sciname in scinames:
             _fulltext_query__expect_hit(
                 self,
-                coll='@ncbi_taxon',
+                coll='ncbi_taxon',
                 search_attrkey='scientific_name',
                 search_text=sciname,
                 ts=_NOW,
@@ -272,6 +275,10 @@ def _fulltext_query__expect_hit(
         params={"stored_query": "fulltext_search"},
         data=json.dumps(data),
     ).json()
+    print('######################################################################')
+    print(json.dumps(resp, indent=4).replace(r'\n', '\n'))
+    print('######################################################################')
+
     results = resp['results'][0]
     docs = results['result']
     hits = [doc[search_attrkey] for doc in docs]
