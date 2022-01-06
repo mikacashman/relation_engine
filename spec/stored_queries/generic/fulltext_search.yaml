@@ -18,11 +18,11 @@ params:
       examples: [escherichia, es]
       description: Text to search on the search attribute values
     ts:
-      type: [integer, null]
+      type: [integer, "null"]
       title: Versioning timestamp
       default: null
     filter_attr_expr:
-      type: [array, null]
+      type: [array, "null"]
       title: Filter by document attribute equality
       items:
         type: object
@@ -38,17 +38,17 @@ params:
         But if any item object in the array satisfies the document, the document is filtered into the results. 
         Basically works like a boolean expression where each key-value pair is a boolean value, each item object is a boolean term, and the array is a sum of boolean terms
     offset:
-      type: [integer, null]
+      type: [integer, "null"]
       title: Paging offset
       maximum: 100000
       default: 0
     limit:
-      type: [integer, null]
+      type: [integer, "null"]
       title: Max results to return
       default: 20
       maximum: 1000
     select:
-      type: [array, null]
+      type: [array, "null"]
       items:
         type: string
       examples: [scientific_name, id]

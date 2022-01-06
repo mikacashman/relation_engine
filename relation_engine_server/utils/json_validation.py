@@ -11,11 +11,6 @@ Example usage:
     assert obj == {'foo': 'bar'}
 """
 from jsonschema import validators, Draft7Validator, FormatChecker, RefResolver
-
-from jsonschema.compat import (
-    urlopen,
-    urlsplit,
-)
 from jsonschema.exceptions import ValidationError
 from jsonpointer import resolve_pointer
 import yaml
@@ -73,9 +68,9 @@ def get_schema_validator(schema=None, schema_file=None, validate_at=""):
     validation_schema = resolve_pointer(schema, validate_at)
 
     if schema_file:
-        resolver = ExtendedRefResolver(schema_file, schema)
+        resolver = RefResolver(schema_file, schema)
     else:
-        resolver = ExtendedRefResolver.from_schema(schema)
+        resolver = RefResolver.from_schema(schema)
 
     return Validator(
         validation_schema, format_checker=FormatChecker(), resolver=resolver
@@ -116,6 +111,7 @@ def run_validator(
     print('\n#schema', schema, '#schema_file', schema_file, '#validate_at', validate_at, '#data', data, sep='\n')
     schema_file_ex = '/spec/stored_queries/taxonomy/taxonomy_search_sci_name.yaml'
     validator_ex = get_schema_validator(None, schema_file_ex, validate_at)
+    print('\n#schema_file_ex', schema_file_ex, '#validator_ex', validator_ex, sep='\n')
 
     validator = get_schema_validator(schema, schema_file, validate_at)
 
@@ -128,10 +124,15 @@ def run_validator(
 
     print('\n#validator', validator, '#data', json.dumps(data, indent=4), sep='\n')
 
+
+    assert validator_ex.is_valid(data) is False
+    assert validator.is_valid({"fav_fruit": 0}) is False
+    assert validator.is_valid(dict(data)) is True
+
     try:
-        validator.is_valid({"fav_fruit": 0})
+        validator.is_valid(None)
     except:
-        raise Exception('WTF!!!')
+        print('no None')
 
     if validator.is_valid(data):
         return data
@@ -159,30 +160,3 @@ def _load_json_schema(file):
 
         raise TypeError("Unknown file type encountered: " + file)
 
-
-class ExtendedRefResolver(RefResolver):
-    def resolve_remote(self, uri):
-
-        scheme = urlsplit(uri).scheme
-        # if there's no scheme, it's a local file, so prefix it with "file://"
-        if scheme == "":
-            uri = "file://" + uri
-
-        if scheme in self.handlers:
-            result = self.handlers[scheme](uri)
-        elif scheme in [u"http", u"https"]:
-            # Requests has support for detecting the correct encoding of
-            # json over http
-            result = requests.get(uri).json()
-        else:
-            # Otherwise, pass off to urllib and assume utf-8
-            with urlopen(uri) as url:
-                content = url.read().decode("utf-8")
-                if uri.endswith(".yaml") or uri.endswith(".yml"):
-                    result = yaml.safe_load(content)
-                else:
-                    result = json.loads(content)
-
-        if self.cache_remote:
-            self.store[uri] = result
-        return result
